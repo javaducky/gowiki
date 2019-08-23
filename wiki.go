@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"html/template"
 	"io/ioutil"
 	"log"
@@ -9,7 +10,9 @@ import (
 )
 
 var templates = template.Must(template.ParseFiles("tmpl/edit.html", "tmpl/view.html"))
+
 var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
+var wikiText = regexp.MustCompile("\\[[a-zA-Z]+\\]")
 
 type Page struct {
 	Title string
@@ -40,7 +43,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request, title string) {
 		http.Redirect(w, r, "/edit/"+title, http.StatusFound)
 		return
 	}
-	renderTemplate(w, "view", p)
+	renderHtmlTemplate(w, "view", p)
 }
 
 func editHandler(w http.ResponseWriter, r *http.Request, title string) {
@@ -48,7 +51,7 @@ func editHandler(w http.ResponseWriter, r *http.Request, title string) {
 	if err != nil {
 		p = &Page{Title: title}
 	}
-	renderTemplate(w, "edit", p)
+	renderTextTemplate(w, "edit", p)
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
@@ -62,11 +65,24 @@ func saveHandler(w http.ResponseWriter, r *http.Request, title string) {
 	http.Redirect(w, r, "/view/"+title, http.StatusFound)
 }
 
-func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
+func renderTextTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 	err := templates.ExecuteTemplate(w, tmpl+".html", p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+func renderHtmlTemplate(w http.ResponseWriter, tmpl string, p *Page) {
+	bw := new(bytes.Buffer)
+	err := templates.ExecuteTemplate(bw, tmpl+".html", p)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+	buf := wikiText.ReplaceAllFunc(bw.Bytes(), func(s []byte) []byte {
+		match := string(s[1 : len(s)-1])
+		return []byte("<a href=\"/view/" + match + "\">" + match + "</a>")
+	})
+	w.Write(buf)
 }
 
 func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {

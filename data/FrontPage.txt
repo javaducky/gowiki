@@ -1,1 +1,3 @@
 Welcome to the wiki!
+
+Create links by providing a [PageName] within square brackets, "[ ]".
