@@ -82,7 +82,10 @@ func renderHtmlTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 		match := string(s[1 : len(s)-1])
 		return []byte("<a href=\"/view/" + match + "\">" + match + "</a>")
 	})
-	w.Write(buf)
+	_, err = w.Write(buf)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func makeHandler(fn func(http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
